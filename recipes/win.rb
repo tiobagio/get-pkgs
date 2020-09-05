@@ -102,24 +102,26 @@ $updates | ConvertTo-Json
   def to_hash (arr)
     myhash = {}
     arr.each { |pkg|
-         myhash[pkg["name"]] = {current: match_selection["version"], available: pkg["version"]}
+         myhash[pkg["Title"]] = {RevisionNumber: pkg["RevisionNumber"], KBArticleIDs: pkg["KBArticleIDs"]}
     }
     return myhash
   end
 
-  all = fetch_updates
-  puts all
-  puts "=-=-=-==-=-=important=-=-=-=-"
-  i = important(all)
-  puts i
-  puts "=-=-=-=-=-=-optional=-=-=-=-"
-  o = optional(all)
-  puts o
+all = fetch_updates
+#puts all
+node.override['package-updates'] = to_hash(all)
+puts node.override['package-updates']
+  #  puts "=-=-=-==-=-=important=-=-=-=-"
+#  i = important(all)
+#  puts i
+#  puts "=-=-=-=-=-=-optional=-=-=-=-"
+#  o = optional(all)
+#  puts o
 
-  pkgs = installed
-  puts "=-=-=-=-=-=-installed software=-=-=-=-"
-  puts pkgs
+#  pkgs = installed
+#  puts "=-=-=-=-=-=-installed software=-=-=-=-"
+#  puts pkgs
 
-  puts "=-=-=-=-=-=-hotfixes=-=-=-=-"
-  hf = hotfixes
-  puts hf
+#  puts "=-=-=-=-=-=-hotfixes=-=-=-=-"
+#  hf = hotfixes
+#  puts hf
