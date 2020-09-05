@@ -1,19 +1,28 @@
-class Windows2012UpdateFetcher < UpdateFetcher
+#class Windows2012UpdateFetcher < UpdateFetcher
+
+  def installed
+    script = 'Get-WmiObject -Class Win32_Product |Select name, version |ConvertTo-Json'
+    cmd = powershell_out(script)
+    begin
+      cache_hotfix_installed = JSON.parse(cmd.stdout)
+    rescue JSON::ParserError => _e
+      return []
+    end
+  end  
+
 
   def hotfixes
-    return @cache_hotfix_installed if defined?(@cache_hotfix_installed)
-
     hotfix_cmd = 'Get-HotFix | Select-Object -Property Status, Description, HotFixId, Caption, InstallDate, InstalledBy | ConvertTo-Json'
-    cmd = @inspec.command(hotfix_cmd)
+    cmd = powershell_out(hotfix_cmd)
     begin
-      @cache_hotfix_installed = JSON.parse(cmd.stdout)
+      cache_hotfix_installed = JSON.parse(cmd.stdout)
     rescue JSON::ParserError => _e
       return []
     end
   end
 
   def fetch_updates
-    return @cache_available if defined?(@cache_available)
+    #return @cache_available if defined?(@cache_available)
     script = <<-EOH
 $updateSession = new-object -com "Microsoft.Update.Session"
 $searcher=$updateSession.CreateupdateSearcher().Search(("IsInstalled=0 and Type='Software'"))
@@ -34,13 +43,13 @@ $updates = $searcher.Updates | ForEach-Object {
 }
 $updates | ConvertTo-Json
     EOH
-    cmd = @inspec.powershell(script)
+    cmd = powershell_out(script)
 
     begin
-      @cache_available = JSON.parse(cmd.stdout)
+      cache_available = JSON.parse(cmd.stdout)
     rescue JSON::ParserError => _e
       # we return nil if an error occured to indicate, that we were not able to retrieve data
-      @cache_available = {}
+      cache_available = {}
     end
   end
 
@@ -63,31 +72,54 @@ $updates | ConvertTo-Json
       uuids.include?('28bc880e-0592-4cbf-8f95-c79b17911d5f') ||
       uuids.include?('e6cf1350-c01b-414d-a61f-263d14d133b4')
   end
-end
 
+
+  def all (all_updates)
+    updates = all_updates
+    updates.map { |update| update }
+  end
 
   # returns all important updates
-  def important
-    updates = fetch_updates
+  def important (all_updates)
+    updates = all_updates
     updates
-      .select { |update|
-        @update_mgmt.important?(update)
-      }.map { |update| # rubocop:disable Style/MultilineBlockChain
-        WindowsUpdate.new(update)
+      .select { |update| important?(update)
+      }.map { |update| 
+        update
       }
   end
 
   # returns all optional updates
-  def optional
-    updates = fetch_updates
+  def optional (all_updates)
+    updates = all_updates
     updates.select { |update|
-      @update_mgmt.optional?(update)
+      optional?(update)
     }.map { |update| # rubocop:disable Style/MultilineBlockChain
-      WindowsUpdate.new(update)
+      update
     }
   end
 
-  def reboot_required?
-    return @chache_reboot if defined?(@chache_reboot)
-    @chache_reboot = inspec.registry_key('HKLM\Software\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update').has_property?('RebootRequired')
+  def to_hash (arr)
+    myhash = {}
+    arr.each { |pkg|
+         myhash[pkg["name"]] = {current: match_selection["version"], available: pkg["version"]}
+    }
+    return myhash
   end
+
+  all = fetch_updates
+  puts all
+  puts "=-=-=-==-=-=important=-=-=-=-"
+  i = important(all)
+  puts i
+  puts "=-=-=-=-=-=-optional=-=-=-=-"
+  o = optional(all)
+  puts o
+
+  pkgs = installed
+  puts "=-=-=-=-=-=-installed software=-=-=-=-"
+  puts pkgs
+
+  puts "=-=-=-=-=-=-hotfixes=-=-=-=-"
+  hf = hotfixes
+  puts hf
