@@ -53,13 +53,21 @@ PRINT_JSON
     parse_json(rhel_updates)
   end
 
+def to_hash(arr)
+  myhash = {}
+  arr.each { |pkg|
+    myhash[pkg["name"]] = {current: pkg["version"]}
+  }
+  return myhash
+end
 
-p = packages
-node.override['packages-installed'] = p['installed']
+
+#p = packages
+#node.override['packages-installed'] = p['installed']
 p = updates
-node.override['packages-updates'] = p['available']
+node.override['packages-updates'] = to_hash(p['available'])
 p = sec_updates
-node.override['packages-sec_updates'] = p['sec_updates']
+node.override['packages-sec_updates'] = to_hash(p['sec_updates'])
 
 history = []
 cmd = shell_out("yum history list | grep [1-9]")
