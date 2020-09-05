@@ -60,3 +60,13 @@ p = updates
 node.override['packages-updates'] = p['available']
 p = sec_updates
 node.override['packages-sec_updates'] = p['sec_updates']
+
+history = []
+cmd = shell_out("yum history list | grep [1-9]")
+cmd.stdout.each_line do |line|
+	history << line
+end
+#puts history
+node.override['yum-history'] = history
+#File.write("/tmp/installed.out", installed)
+

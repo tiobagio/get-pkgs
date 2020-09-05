@@ -1,44 +1,64 @@
-require 'json'
-require 'set'
+  def parse_json(script)
+    cmd =  shell_out(script)
+    begin
+      JSON.parse(cmd.stdout)
+    rescue JSON::ParserError => _e
+      return []
+    end
+  end
 
-
-debian_packages =  <<-PRINT_JSON
+  def packages
+    ubuntu_packages = ubuntu_base + <<-PRINT_JSON
 echo -n '{"installed":['
 dpkg-query -W -f='${Status}\\t${Package}\\t${Version}\\t${Architecture}\\n' |\\
   grep '^install ok installed\\s' |\\
   awk '{ printf "{\\"name\\":\\""$4"\\",\\"version\\":\\""$5"\\",\\"arch\\":\\""$6"\\"}," }' | rev | cut -c 2- | rev | tr -d '\\n'
 echo -n ']}'
 PRINT_JSON
-cmd = shell_out(debian_packages)
-json_out = JSON.parse(cmd.stdout)
-installed = json_out['installed']
-File.write("/tmp/installed.out", installed)
+    parse_json(ubuntu_packages)
+  end
 
-debian_updates = <<-PRINT_JSON
+  def updates
+    ubuntu_updates = ubuntu_base + <<-PRINT_JSON
 echo -n '{"available":['
-DEBIAN_FRONTEND=noninteractive apt upgrade --dry-run | grep Inst | tr -d '[]()' |\\
+DEBIAN_FRONTEND=noninteractive apt-get upgrade --dry-run | grep Inst | tr -d '[]()' |\\
   awk '{ printf "{\\"name\\":\\""$2"\\",\\"version\\":\\""$4"\\",\\"repo\\":\\""$5"\\",\\"arch\\":\\""$6"\\"}," }' | rev | cut -c 2- | rev | tr -d '\\n'
 echo -n ']}'
 PRINT_JSON
-cmd = shell_out(debian_updates)
-json_out = JSON.parse(cmd.stdout)
-updates = json_out['available']
-File.write("/tmp/available.out", updates)
+    parse_json(ubuntu_updates)
+  end
 
-## get installed software that has updates OR intersects installed and updates
-#
-compared_packages = []
-package_updates = {}
-installed.each do |pkg|
-	match_selection = updates.detect { |x| x["name"] == pkg["name"] }
-	if match_selection then	
-		#puts match_selection
-		compared_packages << {name: pkg["name"], current: pkg["version"], available: match_selection["version"]}
-		package_updates[pkg["name"]] = {current: pkg["version"], available: match_selection["version"]}
-	end
-end
-node.override['software-updates'] = package_updates
-#puts package_updates
+  def sec_updates
+    ubuntu_updates = ubuntu_base + <<-PRINT_JSON
+echo -n '{"sec_updates":['
+DEBIAN_FRONTEND=noninteractive apt-get upgrade --dry-run | grep Inst | grep -i security | tr -d '[]()' |\\
+  awk '{ printf "{\\"name\\":\\""$2"\\",\\"version\\":\\""$4"\\",\\"repo\\":\\""$5"\\",\\"arch\\":\\""$6"\\"}," }' | rev | cut -c 2- | rev | tr -d '\\n'
+echo -n ']}'
+PRINT_JSON
+    parse_json(ubuntu_updates)
+  end
 
-## yum history
+  def ubuntu_base
+    base = <<-PRINT_JSON
+#!/bin/sh
+DEBIAN_FRONTEND=noninteractive apt-get update >/dev/null 2>&1
+readlock() { cat /proc/locks | awk '{print $5}' | grep -v ^0 | xargs -I {1} find /proc/{1}/fd -maxdepth 1 -exec readlink {} \\; | grep '^/var/lib/dpkg/lock$'; }
+while test -n "$(readlock)"; do sleep 1; done
+echo " "
+PRINT_JSON
+    base
+  end
 
+p = packages
+node.override['packages-installed'] = p['installed']
+p = updates
+node.override['packages-updates'] = p['available']
+p = sec_updates
+node.override['packages-sec_updates'] = p['sec_updates']
+
+puts "=-=-=-= packages =-=-=-=-="
+puts node.override['packages-installed']
+puts "=-=-=-=- updates =-=-=-=-="
+puts node.override['packages-updates']
+puts "-===-=-=- security updates =-=-=-=-=-="
+puts node.override['packages-sec_updates']
