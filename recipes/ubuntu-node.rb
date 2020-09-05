@@ -49,16 +49,27 @@ PRINT_JSON
     base
   end
 
+def compare (arr, installed)
+  myhash = {}
+  arr.each { |pkg|
+    match_selection = installed.detect { |x| x["name"] == pkg["name"] }
+    if match_selection then
+       myhash[pkg["name"]] = {current: match_selection["version"], available: pkg["version"]}
+    end
+  }
+  return myhash
+end
+
 p = packages
 node.override['packages-installed'] = p['installed']
-p = updates
-node.override['packages-updates'] = p['available']
-p = sec_updates
-node.override['packages-sec_updates'] = p['sec_updates']
+u = updates
+node.override['packages-updates'] = compare(u['available'], p['installed'])
+u = sec_updates
+node.override['packages-sec_updates'] = compare(u['sec_updates'], p['installed'])
 
-puts "=-=-=-= packages =-=-=-=-="
-puts node.override['packages-installed']
-puts "=-=-=-=- updates =-=-=-=-="
-puts node.override['packages-updates']
-puts "-===-=-=- security updates =-=-=-=-=-="
-puts node.override['packages-sec_updates']
+#puts "=-=-=-= packages =-=-=-=-="
+#puts node.override['packages-installed']
+#puts "=-=-=-=- updates =-=-=-=-="
+#puts node.override['packages-updates']
+#puts "-===-=-=- security updates =-=-=-=-=-="
+#puts node.override['packages-sec_updates']

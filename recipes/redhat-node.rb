@@ -53,21 +53,30 @@ PRINT_JSON
     parse_json(rhel_updates)
   end
 
-def to_hash(arr)
+def compare (arr, installed)
   myhash = {}
   arr.each { |pkg|
-    myhash[pkg["name"]] = {current: pkg["version"]}
+    match_selection = installed.detect { |x| x["name"] == pkg["name"] }
+    if match_selection then
+       myhash[pkg["name"]] = {current: match_selection["version"], available: pkg["version"]}
+    end
   }
   return myhash
 end
 
+p = packages
+node.override['packages-installed'] = p['installed']
+u = updates
+node.override['packages-updates'] = compare(u['available'], p['installed'])
+u = sec_updates
+node.override['packages-sec_updates'] = compare(u['sec_updates'], p['installed'])
 
-#p = packages
-#node.override['packages-installed'] = p['installed']
-p = updates
-node.override['packages-updates'] = to_hash(p['available'])
-p = sec_updates
-node.override['packages-sec_updates'] = to_hash(p['sec_updates'])
+#puts "=-=-=-= packages =-=-=-=-="
+#puts node.override['packages-installed']
+#puts "=-=-=-=- updates =-=-=-=-="
+#puts node.override['packages-updates']
+#puts "-===-=-=- security updates =-=-=-=-=-="
+#puts node.override['packages-sec_updates']
 
 history = []
 cmd = shell_out("yum history list | grep [1-9]")
@@ -76,5 +85,4 @@ cmd.stdout.each_line do |line|
 end
 #puts history
 node.override['yum-history'] = history
-#File.write("/tmp/installed.out", installed)
 
