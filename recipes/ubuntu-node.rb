@@ -61,7 +61,6 @@ def compare (arr, installed)
 end
 
 p = packages
-node.override['packages-installed'] = p['installed']
 u = updates
 node.override['packages-updates'] = compare(u['available'], p['installed'])
 u = sec_updates
