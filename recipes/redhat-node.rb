@@ -54,5 +54,9 @@ PRINT_JSON
   end
 
 
-node.override['packages-installed']=packages
-puts node.override['packages-installed']
+p = packages
+node.override['packages-installed'] = p['installed']
+p = updates
+node.override['packages-updates'] = p['available']
+p = sec_updates
+node.override['packages-sec_updates'] = p['sec_updates']
